@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, redirect, url_for
 import json
 import os
 import re
@@ -6,7 +6,7 @@ import re
 app = Flask(__name__)
 
 # Ścieżka do pliku JSON
-DB_FILE = os.path.join(os.path.dirname(__file__), "projects_db.json")
+DB_FILE = os.path.join(os.path.dirname(__file__), "data", "projects_db.json")
 
 
 # Funkcja wczytująca projekty z JSON
@@ -15,6 +15,12 @@ def load_projects_from_json():
         with open(DB_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {}
+
+
+# Funkcja zapisująca projekty do JSON
+def save_projects_to_json(projects):
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(projects, f, ensure_ascii=False, indent=4)
 
 
 def _compare_features(cechy1, cechy2, all_features):
@@ -123,7 +129,6 @@ def filter_projects():
     if not projects:
         return render_template('error.html', message="Brak projektów do filtrowania"), 400
 
-    # Przykładowe cechy do filtrowania (możesz dostosować)
     available_features = ["Średnica Tłoka", "Skok Siłownika", "Tłok Magnetyczny"]
 
     if request.method == 'POST':
@@ -143,6 +148,44 @@ def filter_projects():
                            projects=projects,
                            filtered_projects=projects,
                            available_features=available_features)
+
+
+@app.route('/add_project', methods=['GET', 'POST'])
+def add_project():
+    projects = load_projects_from_json()
+    available_features = ["Średnica Tłoka", "Skok Siłownika", "Tłok Magnetyczny"]
+
+    if request.method == 'POST':
+        symbol = request.form.get('symbol')
+        nazwa = request.form.get('nazwa')
+        id_proj = request.form.get('id')
+
+        if not symbol or not nazwa or not id_proj:
+            return render_template('add_project.html',
+                                   available_features=available_features,
+                                   error="Wszystkie pola (symbol, nazwa, ID) są wymagane"), 400
+
+        if symbol in projects:
+            return render_template('add_project.html',
+                                   available_features=available_features,
+                                   error="Projekt o podanym symbolu już istnieje"), 400
+
+        cechy = {}
+        for feature in available_features:
+            value = request.form.get(feature)
+            if value:
+                cechy[feature] = value
+
+        projects[symbol] = {
+            "Nazwa": nazwa,
+            "ID": id_proj,
+            "Cechy": cechy
+        }
+
+        save_projects_to_json(projects)
+        return redirect(url_for('index'))
+
+    return render_template('add_project.html', available_features=available_features)
 
 
 if __name__ == '__main__':
