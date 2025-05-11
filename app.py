@@ -6,7 +6,7 @@ import re
 app = Flask(__name__)
 
 # Ścieżka do pliku JSON
-DB_FILE = os.path.join(os.path.dirname(__file__), "data", "projects_db.json")
+DB_FILE = os.path.join("/opt/render/project/src/data", "projects_db.json")
 
 
 # Funkcja wczytująca projekty z JSON
