@@ -41,6 +41,31 @@ def _compare_features(cechy1, cechy2, all_features):
     return matches, differences
 
 
+def _filter_projects(projects, filters):
+    """Filtruje projekty na podstawie podanych kryteriów."""
+    filtered = {}
+    for symbol, details in projects.items():
+        matches = True
+        cechy = details.get("Cechy", {})
+        for feature, value in filters.items():
+            if not value:
+                continue
+            if feature not in cechy:
+                matches = False
+                break
+            if feature in ["Średnica Tłoka", "Skok Siłownika"]:
+                match = re.search(r"\d+", cechy[feature])
+                if not match or float(match.group()) != float(value):
+                    matches = False
+                    break
+            elif cechy[feature].lower() != value.lower():
+                matches = False
+                break
+        if matches:
+            filtered[symbol] = details
+    return filtered
+
+
 @app.route('/')
 def index():
     projects = load_projects_from_json()
@@ -90,6 +115,34 @@ def compare_projects():
                                proj2_id=projects[proj2]["ID"])
 
     return render_template('compare.html', projects=projects)
+
+
+@app.route('/filter', methods=['GET', 'POST'])
+def filter_projects():
+    projects = load_projects_from_json()
+    if not projects:
+        return render_template('error.html', message="Brak projektów do filtrowania"), 400
+
+    # Przykładowe cechy do filtrowania (możesz dostosować)
+    available_features = ["Średnica Tłoka", "Skok Siłownika", "Tłok Magnetyczny"]
+
+    if request.method == 'POST':
+        filters = {}
+        for feature in available_features:
+            value = request.form.get(feature)
+            if value:
+                filters[feature] = value
+        filtered_projects = _filter_projects(projects, filters)
+        return render_template('filter.html',
+                               projects=projects,
+                               filtered_projects=filtered_projects,
+                               available_features=available_features,
+                               filters=filters)
+
+    return render_template('filter.html',
+                           projects=projects,
+                           filtered_projects=projects,
+                           available_features=available_features)
 
 
 if __name__ == '__main__':
